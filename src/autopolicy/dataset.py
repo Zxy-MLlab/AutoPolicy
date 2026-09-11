@@ -1,0 +1,95 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
+from .errors import StageError
+from .io import read_json, read_jsonl
+
+
+REQUIRED_FEATURES = {"observation.state", "action"}
+
+
+def audit_lerobot_dataset(root: Path, verify_files: bool = True) -> dict[str, Any]:
+    if not root.is_dir():
+        raise StageError(f"dataset root does not exist: {root}")
+    candidates = [root] if (root / "meta/info.json").is_file() else sorted(
+        path for path in root.iterdir() if (path / "meta/info.json").is_file()
+    )
+    if not candidates:
+        raise StageError(f"no LeRobot dataset directories found under {root}")
+
+    errors: list[str] = []
+    datasets: list[dict[str, Any]] = []
+    total_episodes = 0
+    total_frames = 0
+    for dataset_root in candidates:
+        try:
+            info = read_json(dataset_root / "meta/info.json")
+            episodes_path = dataset_root / "meta/episodes.jsonl"
+            episodes = read_jsonl(episodes_path)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            errors.append(f"{dataset_root.name}: {exc}")
+            continue
+        features = set(info.get("features", {}))
+        missing = REQUIRED_FEATURES - features
+        if missing:
+            errors.append(f"{dataset_root.name}: missing features {sorted(missing)}")
+        declared_episodes = int(info.get("total_episodes", -1))
+        declared_frames = int(info.get("total_frames", -1))
+        actual_frames = sum(int(row.get("length", 0)) for row in episodes)
+        if declared_episodes != len(episodes):
+            errors.append(
+                f"{dataset_root.name}: declared {declared_episodes} episodes, found {len(episodes)}"
+            )
+        if declared_frames != actual_frames:
+            errors.append(
+                f"{dataset_root.name}: declared {declared_frames} frames, indexed {actual_frames}"
+            )
+        missing_data = 0
+        missing_videos = 0
+        if verify_files:
+            data_pattern = str(info.get("data_path", ""))
+            video_pattern = str(info.get("video_path", ""))
+            video_keys = [key for key, value in info.get("features", {}).items() if value.get("dtype") == "video"]
+            chunk_size = int(info.get("chunks_size", 1000))
+            for row in episodes:
+                index = int(row["episode_index"])
+                values = {"episode_index": index, "episode_chunk": index // chunk_size}
+                if data_pattern and not (dataset_root / data_pattern.format(**values)).is_file():
+                    missing_data += 1
+                for video_key in video_keys:
+                    if video_pattern and not (
+                        dataset_root / video_pattern.format(video_key=video_key, **values)
+                    ).is_file():
+                        missing_videos += 1
+        if missing_data:
+            errors.append(f"{dataset_root.name}: {missing_data} missing parquet files")
+        if missing_videos:
+            errors.append(f"{dataset_root.name}: {missing_videos} missing video files")
+        total_episodes += max(declared_episodes, 0)
+        total_frames += max(declared_frames, 0)
+        datasets.append(
+            {
+                "name": dataset_root.name,
+                "root": str(dataset_root),
+                "codebase_version": info.get("codebase_version"),
+                "robot_type": info.get("robot_type"),
+                "fps": info.get("fps"),
+                "episodes": declared_episodes,
+                "frames": declared_frames,
+                "features": sorted(features),
+                "missing_data_files": missing_data,
+                "missing_video_files": missing_videos,
+            }
+        )
+    return {
+        "format": "LeRobotDataset",
+        "roots": len(datasets),
+        "total_episodes": total_episodes,
+        "total_frames": total_frames,
+        "valid": not errors and len(datasets) == len(candidates),
+        "errors": errors,
+        "datasets": datasets,
+    }

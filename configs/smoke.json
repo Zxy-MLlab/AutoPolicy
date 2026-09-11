@@ -1,0 +1,20 @@
+{
+  "name": "autopolicy-smoke",
+  "root": "/data/zxy/autopolicy",
+  "seed": 17,
+  "max_iterations": 2,
+  "success_target": 0.9,
+  "stages": {
+    "reconstruct": {"backend": "mock"},
+    "validate": {"backend": "mock"},
+    "generate": {
+      "backend": "mock",
+      "options": {"episodes": 10, "horizon": 8, "quality_threshold": 0.75}
+    },
+    "dataset": {"backend": "mock"},
+    "train": {"backend": "mock", "options": {"steps": 12}},
+    "evaluate": {"backend": "mock", "options": {"trials_per_scenario": 10}},
+    "deploy": {"backend": "disabled"},
+    "improve": {"backend": "mock"}
+  }
+}

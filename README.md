@@ -1,1 +1,115 @@
 # AutoPolicy
+
+AutoPolicy is an auditable orchestration layer for a closed-loop robotics workflow:
+
+```text
+real observations -> Real2Sim -> validation gate -> task/expert rollouts
+                  -> LeRobotDataset -> VLA/WAM -> simulation evaluation
+                  -> targeted new data -> retraining -> approved robot rollout
+```
+
+The repository keeps orchestration, upstream source, datasets, caches, environments, models, checkpoints,
+and run artifacts below `/data/zxy/autopolicy`. Every stage writes a manifest with its backend, provenance,
+result, timestamps, artifacts, and SHA-256 hashes. The pipeline stops on a failed validation gate or command.
+
+## What is implemented
+
+- Independent pinned snapshots of GPT6-real2sim, RoboTwin, and LeRobot in `vendor/`.
+- A resumable eight-stage state machine: reconstruction, validation, generation, dataset conversion/audit,
+  training, evaluation, deployment, and feedback-driven improvement.
+- Three interchangeable backends: deterministic `mock` contracts, archived/existing `artifact` and `catalog`
+  adapters, and arbitrary argv-based `external` adapters.
+- Validation gates for camera alignment, collision penetration, joint/velocity limits, physics tracking,
+  placement, and task executability.
+- Full LeRobot v2.1 catalog validation, including metadata/frame counts and the existence of every parquet and
+  video file.
+- Feedback requests ranked by failed OOD scenario; the next generation iteration consumes these requests and
+  adds targeted rollouts.
+- A real LeRobot launcher for SmolVLA and FastWAM. It intentionally does not auto-launch expensive training.
+- A hardware safety boundary: external deployment requires explicit operator approval and an emergency-stop
+  description. The included configurations never command a robot.
+
+The upstream GPT6-real2sim repository is a strong artifact study but explicitly describes itself as
+semi-manual, not a general learned one-click reconstruction system. AutoPolicy preserves that distinction:
+archived results are labeled `archived_real2sim_artifact`, smoke outputs are labeled
+`synthetic_smoke_test`, and external results are labeled `external`.
+
+## Quick start
+
+No third-party Python dependency is needed for orchestration itself.
+
+```bash
+cd /data/zxy/autopolicy
+scripts/autopolicy.sh doctor --config configs/smoke.json
+scripts/autopolicy.sh run --config configs/smoke.json
+scripts/autopolicy.sh status /data/zxy/autopolicy/runs/<run-id>
+```
+
+Run the acceptance checks:
+
+```bash
+HOME=/data/zxy/autopolicy \
+TMPDIR=/data/zxy/autopolicy/tmp \
+XDG_CACHE_HOME=/data/zxy/autopolicy/cache/xdg \
+PYTHONPATH=/data/zxy/autopolicy/src \
+/data/zxy/envs/lerobot/bin/pytest -q
+```
+
+Audit the imported RoboTwin data:
+
+```bash
+scripts/autopolicy.sh audit-dataset /data/zxy/autopolicy/data/robotwin_clean_50
+```
+
+Run the integration audit over a GPT6-real2sim artifact and all real RoboTwin datasets:
+
+```bash
+scripts/autopolicy.sh run --config configs/artifact_catalog.json
+```
+
+## Configurations
+
+- `configs/smoke.json`: two closed-loop synthetic iterations, safe and fast.
+- `configs/artifact_catalog.json`: GPT6-real2sim ep0 metric gates plus the 50-task RoboTwin dataset audit;
+  training and deployment are disabled.
+- `configs/external.template.json`: contract template for real reconstruction, simulation, conversion,
+  training, and evaluation commands.
+
+External commands are executed as argv arrays without a shell. Available placeholders include `{root}`,
+`{run_dir}`, `{stage_dir}`, `{iteration}`, `{gpt6_real2sim}`, `{robotwin}`, `{lerobot}`, `{datasets}`,
+`{models}`, and `{checkpoints}`. An external stage should write `result.json` (or the filename configured by
+`options.result`) into its stage directory. Validation results must contain `"passed": true`.
+
+See [architecture.md](docs/architecture.md) for artifact contracts, closure behavior, and production bring-up.
+
+## Real training
+
+The included launcher uses standard LeRobot policy types `smolvla` and `fastwam`:
+
+```bash
+scripts/autopolicy.sh-env /data/zxy/autopolicy/envs/lerobot/bin/python scripts/train_lerobot_policies.py \
+  --lerobot-root /data/zxy/autopolicy/vendor/lerobot \
+  --dataset-root /data/zxy/autopolicy/data/robotwin_clean_50/<one-task-dataset> \
+  --output-dir /data/zxy/autopolicy/checkpoints/first-run \
+  --steps 100000
+```
+
+This requires a LeRobot environment at `envs/lerobot` with the matching SmolVLA/FastWAM extras and model
+weights available in the project cache. Training is a deliberate operator action because it is expensive and
+model/dataset choices materially affect the experiment.
+
+Create that environment, including all caches, inside this project with:
+
+```bash
+scripts/bootstrap_lerobot_env.sh
+```
+
+The install is intentionally separate from the lightweight orchestrator because CUDA wheels and the two model
+families require substantial disk space.
+
+## Scope boundaries
+
+The repository supplies executable integration contracts and verified local artifacts. A new physical scene
+still requires RGB/RGB-D/video, calibration evidence, a robot model, and a configured MuJoCo or Isaac Sim
+adapter. Real deployment additionally requires the robot interface, workspace limits, tested emergency stop,
+and operator authorization. No smoke or archived-artifact result is a hardware safety certificate.

@@ -1,0 +1,49 @@
+{
+  "scene_id": "task1",
+  "source_file": "VID_20260611_160742_1000810407.mp4",
+  "normalized_video": "videos/camera_00.mp4",
+  "task": null,
+  "source": {
+    "container": "mp4",
+    "video_codec": "h264",
+    "video_profile": "High",
+    "width": 1920,
+    "height": 1080,
+    "nominal_fps": 30,
+    "source_video_frames": 380,
+    "source_video_duration_s": 12.744333,
+    "has_audio": true,
+    "audio_codec": "aac",
+    "audio_channels": 2,
+    "audio_sample_rate_hz": 48000,
+    "sha256": "f748b45b044f165e097664c4ed8b115d291fef2242621ce5fe3f94d53d92a9f6"
+  },
+  "normalized": {
+    "container": "mp4",
+    "video_codec": "h264",
+    "pixel_format": "yuv420p",
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "frames": 382,
+    "duration_s": 12.733333,
+    "has_audio": false,
+    "timestamp_start_s": 0.0,
+    "sha256": "2cf44f5c29086868c309be67a0cea26b1f3fd1e5b4b1b30e70d36319e5f3025"
+  },
+  "camera": {
+    "camera_name": "camera_00",
+    "intrinsics": null,
+    "extrinsics": null,
+    "timestamp_unit": "seconds"
+  },
+  "robot": {
+    "joint_states": null,
+    "gripper_states": null
+  },
+  "notes": [
+    "Original file is preserved unchanged at the scene root.",
+    "Normalized file removes audio and rewrites timestamps to a constant 30 FPS stream.",
+    "A single video is sufficient for visual inspection, but not for an executable robot digital twin without robot state, calibration, and metric scale."
+  ]
+}

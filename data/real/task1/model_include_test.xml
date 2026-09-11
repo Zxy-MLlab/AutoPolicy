@@ -1,0 +1,7 @@
+<mujoco model="task1_include_test">
+  <compiler angle="radian" meshdir="/data/zxy/autopolicy/vendor/gpt6-real2sim/real2sim_microphones/" />
+  <include file="/data/zxy/autopolicy/vendor/gpt6-real2sim/real2sim_microphones/robot_portable.xml" />
+  <worldbody>
+    <geom name="task1_table" type="box" size="0.8 0.7 0.03" pos="0.6 0 0.73" />
+  </worldbody>
+</mujoco>

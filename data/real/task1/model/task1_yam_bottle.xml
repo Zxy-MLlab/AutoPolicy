@@ -1,0 +1,41 @@
+<mujoco model="task1_yam_bottle">
+  <compiler angle="radian" meshdir="/data/zxy/autopolicy/vendor/gpt6-real2sim/real2sim_microphones/" />
+  <option integrator="implicitfast" timestep="0.001" iterations="100" cone="elliptic" gravity="0 0 -9.81" />
+  <size nconmax="512" njmax="4096" />
+  <visual>
+    <global offwidth="1920" offheight="1080" />
+    <quality shadowsize="4096" offsamples="8" />
+    <headlight ambient="0.42 0.42 0.42" diffuse="0.55 0.55 0.55" specular="0.1 0.1 0.1" />
+  </visual>
+  <asset>
+    <material name="task1_table_visual" rgba="0.87 0.87 0.84 1" />
+    <material name="task1_table_edge" rgba="0.30 0.30 0.28 1" />
+    <material name="task1_bottle_body" rgba="0.73 0.86 0.88 0.48" specular="0.65" shininess="0.55" />
+    <material name="task1_bottle_label" rgba="0.08 0.28 0.36 1" />
+    <material name="task1_bottle_cap" rgba="0.10 0.38 0.46 1" />
+  </asset>
+
+  <include file="/data/zxy/autopolicy/vendor/gpt6-real2sim/real2sim_microphones/robot_portable.xml" />
+
+  <worldbody>
+    <light name="task1_key_light" pos="0.3 -0.8 2.2" dir="0.1 0.2 -1" directional="true" diffuse="0.65 0.65 0.65" specular="0.15 0.15 0.15" />
+    <geom name="task1_table_collision" type="box" size="0.62 0.66 0.018" pos="0.55 0 0.744" material="task1_table_edge" friction="0.65 0.02 0.002" condim="4" />
+    <geom name="task1_back_counter" type="box" size="0.62 0.018 0.28" pos="0.55 0.64 1.02" material="task1_table_edge" contype="0" conaffinity="0" />
+    <!-- Fixed high-mounted camera hypothesis, using the YAM calibration-head pose. -->
+    <camera name="task1_head_camera" pos="0.0842089 0.0133344 1.70907" quat="-0.674230 -0.182618 0.196570 0.688059" fovy="58.13" />
+
+    <body name="task1_bottle" pos="0.47 0.16 0.762">
+      <freejoint name="task1_bottle_free" />
+      <inertial pos="0 0 0.115" mass="0.55" diaginertia="0.0020 0.0020 0.00035" />
+      <geom name="task1_bottle_body" type="cylinder" size="0.033 0.090" pos="0 0 0.090" material="task1_bottle_body" friction="0.55 0.02 0.002" condim="4" solref="0.006 1" solimp="0.95 0.999 0.001" />
+      <geom name="task1_bottle_shoulder" type="sphere" size="0.033" pos="0 0 0.184" material="task1_bottle_body" friction="0.55 0.02 0.002" condim="4" solref="0.006 1" solimp="0.95 0.999 0.001" />
+      <geom name="task1_bottle_label" type="cylinder" size="0.034 0.027" pos="0 0 0.105" material="task1_bottle_label" contype="0" conaffinity="0" />
+      <geom name="task1_bottle_neck" type="cylinder" size="0.014 0.020" pos="0 0 0.211" material="task1_bottle_body" friction="0.55 0.02 0.002" condim="4" />
+      <geom name="task1_bottle_cap" type="cylinder" size="0.017 0.009" pos="0 0 0.240" material="task1_bottle_cap" friction="0.55 0.02 0.002" condim="4" />
+    </body>
+  </worldbody>
+  <contact>
+    <exclude body1="left_camera_d405" body2="task1_bottle" />
+    <exclude body1="right_camera_d405" body2="task1_bottle" />
+  </contact>
+</mujoco>
