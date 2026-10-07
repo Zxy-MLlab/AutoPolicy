@@ -1,5 +1,8 @@
 import pytest
+import json
+from pathlib import Path
 
+from scripts import task1_vla_pipeline_stage as stage
 from scripts.task1_vla_pipeline_stage import paired_outcomes, resolve_cuda_device
 
 
@@ -38,3 +41,15 @@ def test_paired_outcomes_rejects_position_mismatch() -> None:
 
 def test_explicit_cuda_device_is_preserved() -> None:
     assert resolve_cuda_device("6") == "6"
+
+
+def test_archived_paths_relocate_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(stage, "ROOT", tmp_path)
+    source = tmp_path / "report.json"
+    source.write_text(
+        json.dumps({"old": "/data/zxy/autopolicy/data/a", "current": str(tmp_path / "data/a")}),
+        encoding="utf-8",
+    )
+    report = stage.read_json(source)
+    assert report["old"] == str(tmp_path / "data/a")
+    assert report["current"] == str(tmp_path / "data/a")

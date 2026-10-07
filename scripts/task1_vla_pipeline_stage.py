@@ -30,7 +30,12 @@ def read_json(path: Path) -> Any:
     """Read archived task1 metadata after mapping the source checkout to this one."""
     def relocate(value: Any) -> Any:
         if isinstance(value, str):
-            return value.replace("/data/zxy/autopolicy", str(ROOT))
+            if value.startswith(str(ROOT)):
+                return value
+            source_root = "/data/zxy/autopolicy"
+            if value == source_root or value.startswith(source_root + "/"):
+                return str(ROOT) + value[len(source_root):]
+            return value
         if isinstance(value, list):
             return [relocate(item) for item in value]
         if isinstance(value, dict):
