@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -8,7 +9,7 @@ from typing import Any
 from .errors import ConfigError
 
 
-WORKSPACE_ROOT = Path("/data/zxy/autopolicy")
+WORKSPACE_ROOT = Path(__file__).resolve().parents[2]
 STAGE_NAMES = (
     "reconstruct",
     "validate",
@@ -19,7 +20,7 @@ STAGE_NAMES = (
     "deploy",
     "improve",
 )
-BACKENDS = {"mock", "artifact", "external", "catalog", "disabled"}
+BACKENDS = {"mock", "artifact", "external", "catalog", "preparation", "disabled"}
 
 
 @dataclass(frozen=True)
@@ -31,6 +32,7 @@ class StageConfig:
 
 @dataclass(frozen=True)
 class PipelineConfig:
+    source: Path
     name: str
     root: Path
     seed: int
@@ -49,10 +51,20 @@ def _resolve_path(value: str, config_dir: Path) -> Path:
     return (config_dir / path).resolve() if not path.is_absolute() else path.resolve()
 
 
-def _assert_storage_path(path: Path, label: str) -> None:
-    allowed_root = Path("/data/zxy").resolve()
-    if path != allowed_root and allowed_root not in path.parents:
-        raise ConfigError(f"{label} must be under /data/zxy, got {path}")
+def _assert_storage_path(path: Path, label: str, root: Path) -> None:
+    if path != root and root not in path.parents:
+        raise ConfigError(f"{label} must be under {root}, got {path}")
+
+
+def _expand_root(value: Any, root: Path) -> Any:
+    """Resolve repository-relative config templates while preserving stage placeholders."""
+    if isinstance(value, str):
+        return value.replace("{root}", str(root))
+    if isinstance(value, list):
+        return [_expand_root(item, root) for item in value]
+    if isinstance(value, dict):
+        return {key: _expand_root(item, root) for key, item in value.items()}
+    return value
 
 
 def load_config(path: str | Path) -> PipelineConfig:
@@ -64,8 +76,10 @@ def load_config(path: str | Path) -> PipelineConfig:
     if not isinstance(raw, dict):
         raise ConfigError("pipeline config must be a JSON object")
 
-    root = _resolve_path(str(raw.get("root", WORKSPACE_ROOT)), source.parent)
-    _assert_storage_path(root, "root")
+    root_setting = os.environ.get("AUTOPOLICY_ROOT", raw.get("root", str(WORKSPACE_ROOT)))
+    root = _resolve_path(str(root_setting), source.parent)
+    raw = _expand_root(raw, root)
+    raw["root"] = str(root)
     name = str(raw.get("name", "autopolicy"))
     seed = int(raw.get("seed", 7))
     max_iterations = int(raw.get("max_iterations", 1))
@@ -92,7 +106,7 @@ def load_config(path: str | Path) -> PipelineConfig:
     paths: dict[str, Path] = {}
     for key, default in defaults.items():
         paths[key] = _resolve_path(str(raw_paths.get(key, default)), source.parent)
-        _assert_storage_path(paths[key], f"paths.{key}")
+        _assert_storage_path(paths[key], f"paths.{key}", root)
 
     raw_stages = raw.get("stages", {})
     if not isinstance(raw_stages, dict):
@@ -116,13 +130,13 @@ def load_config(path: str | Path) -> PipelineConfig:
             raise ConfigError(f"stages.{stage_name}.options must be an object")
         stages[stage_name] = StageConfig(backend, tuple(command_value), options)
 
-    return PipelineConfig(name, root, seed, max_iterations, success_target, stages, paths, raw)
+    return PipelineConfig(source, name, root, seed, max_iterations, success_target, stages, paths, raw)
 
 
 def storage_environment(config: PipelineConfig) -> dict[str, str]:
     cache = config.paths["cache"]
     environment = {
-        "HOME": str(config.root),
+        "HOME": str(cache / "home"),
         "TMPDIR": str(config.paths["tmp"]),
         "XDG_CACHE_HOME": str(cache / "xdg"),
         "HF_HOME": str(cache / "huggingface"),
@@ -137,10 +151,36 @@ def storage_environment(config: PipelineConfig) -> dict[str, str]:
         "TRITON_CACHE_DIR": str(cache / "triton"),
         "PYTORCH_KERNEL_CACHE_PATH": str(cache / "torch/kernels"),
         "PYTHONPYCACHEPREFIX": str(cache / "pycache"),
-        "PYTHONPATH": str(config.root / "src"),
+        "PYTHONPATH": ":".join(
+            str(path)
+            for path in (
+                config.root,
+                config.paths["lerobot"] / "src",
+                config.root / "scripts",
+                config.root / "src",
+            )
+        ),
         "PYTHONNOUSERSITE": "1",
+        "MUJOCO_GL": "egl",
         "AUTOPOLICY_ROOT": str(config.root),
     }
-    for value in environment.values():
-        Path(value).mkdir(parents=True, exist_ok=True) if value.startswith("/data/zxy") else None
+    directory_keys = {
+        "HOME",
+        "TMPDIR",
+        "XDG_CACHE_HOME",
+        "HF_HOME",
+        "HF_DATASETS_CACHE",
+        "TRANSFORMERS_CACHE",
+        "TORCH_HOME",
+        "PIP_CACHE_DIR",
+        "UV_CACHE_DIR",
+        "WANDB_DIR",
+        "MPLCONFIGDIR",
+        "CUDA_CACHE_PATH",
+        "TRITON_CACHE_DIR",
+        "PYTORCH_KERNEL_CACHE_PATH",
+        "PYTHONPYCACHEPREFIX",
+    }
+    for key in directory_keys:
+        Path(environment[key]).mkdir(parents=True, exist_ok=True)
     return environment

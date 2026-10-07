@@ -13,7 +13,7 @@ import mujoco
 import numpy as np
 
 
-ROOT = Path("/data/zxy/autopolicy").resolve()
+ROOT = Path(__file__).resolve().parents[1].resolve()
 SCENE = ROOT / "data/real/task1/model/task1_yam_bottle.xml"
 SOURCE_SCENE = ROOT / "vendor/gpt6-real2sim/real2sim_microphones/scene_portable.xml"
 OUTPUT = ROOT / "runs/task1-real2sim-modeling"

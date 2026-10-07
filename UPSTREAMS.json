@@ -1,17 +1,17 @@
 {
   "gpt6-real2sim": {
     "commit": "fc74e18b35b40dcc440faf7470b0b4d6bff1fb6a",
-    "path": "/data/zxy/autopolicy/vendor/gpt6-real2sim",
+    "path": "vendor/gpt6-real2sim",
     "url": "https://github.com/lingxiao-guo/GPT6-real2sim.git"
   },
   "lerobot": {
     "commit": "b6ec0060779550c0a157ae34feb89e0cf86012a8",
-    "path": "/data/zxy/autopolicy/vendor/lerobot",
+    "path": "vendor/lerobot",
     "url": "https://github.com/huggingface/lerobot.git"
   },
   "robotwin": {
     "commit": "4037e91fcbc20f7d82ea79f5286e805b48e14724",
-    "path": "/data/zxy/autopolicy/vendor/robotwin",
+    "path": "vendor/robotwin",
     "url": "https://github.com/Tengbo-Yu/robotwin.git"
   }
 }

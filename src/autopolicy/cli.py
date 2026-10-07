@@ -26,6 +26,11 @@ def parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--config", required=True)
     run_parser.add_argument("--run-dir")
     run_parser.add_argument("--resume", action="store_true")
+    run_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="resolve stages and commands without creating a run or executing commands",
+    )
     run_parser.add_argument("--from-stage", choices=STAGE_NAMES)
     run_parser.add_argument("--to-stage", choices=STAGE_NAMES)
 
@@ -48,6 +53,16 @@ def main(argv: list[str] | None = None) -> int:
         if arguments.command == "run":
             config = load_config(arguments.config)
             runner = PipelineRunner(config, Path(arguments.run_dir) if arguments.run_dir else None)
+            if arguments.dry_run:
+                if arguments.resume:
+                    raise ValueError("--dry-run and --resume cannot be used together")
+                _print(
+                    runner.dry_run(
+                        from_stage=arguments.from_stage,
+                        to_stage=arguments.to_stage,
+                    )
+                )
+                return 0
             state = runner.run(
                 resume=arguments.resume,
                 from_stage=arguments.from_stage,

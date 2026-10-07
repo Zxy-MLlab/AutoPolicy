@@ -1,0 +1,22 @@
+{
+  "schema": "autopolicy.task1_smolvla_robustness_suite/v1",
+  "description": "Two-scenario execution smoke suite; not a model qualification benchmark.",
+  "scenarios": [
+    {
+      "name": "nominal",
+      "arguments": []
+    },
+    {
+      "name": "combined_ood",
+      "arguments": [
+        "--initial-joint-noise-std-rad", "0.02",
+        "--camera-position-noise-std-m", "0.01",
+        "--camera-rotation-noise-std-deg", "1.0",
+        "--bottle-mass-scale-range", "0.75", "1.25",
+        "--bottle-friction-scale-range", "0.75", "1.25",
+        "--brightness-scale-range", "0.8", "1.2",
+        "--occlusion-fraction", "0.02"
+      ]
+    }
+  ]
+}

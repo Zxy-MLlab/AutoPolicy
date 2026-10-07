@@ -11,8 +11,8 @@ from typing import Any
 
 from .config import STAGE_NAMES, PipelineConfig, storage_environment
 from .errors import ConfigError
-from .io import file_record, read_json, utc_now, write_json
-from .stages import STAGE_FUNCTIONS
+from .io import file_record, read_json, sha256_file, utc_now, write_json
+from .stages import STAGE_FUNCTIONS, external_stage_plan
 
 
 def _run_id() -> str:
@@ -32,13 +32,29 @@ def _git_revision(path: Path) -> str | None:
     return completed.stdout.strip() if completed.returncode == 0 else None
 
 
+def _git_dirty(path: Path) -> bool | None:
+    if not (path / ".git").exists():
+        return None
+    completed = subprocess.run(
+        ["git", "-C", str(path), "status", "--porcelain"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return bool(completed.stdout.strip()) if completed.returncode == 0 else None
+
+
 def doctor(config: PipelineConfig) -> dict[str, Any]:
     checks: dict[str, dict[str, Any]] = {}
+    needs_upstreams = any(
+        stage.backend not in {"mock", "disabled"} for stage in config.stages.values()
+    )
     for name in ("gpt6_real2sim", "robotwin", "lerobot"):
         path = config.paths[name]
         checks[name] = {
             "path": str(path),
             "exists": path.is_dir(),
+            "required": needs_upstreams,
             "git_revision": _git_revision(path),
         }
     for name in ("runs", "datasets", "checkpoints", "models", "cache", "tmp"):
@@ -46,8 +62,15 @@ def doctor(config: PipelineConfig) -> dict[str, Any]:
         path.mkdir(parents=True, exist_ok=True)
         checks[name] = {"path": str(path), "exists": path.is_dir(), "writable": os.access(path, os.W_OK)}
     environment = storage_environment(config)
-    path_environment = {key: value for key, value in environment.items() if key != "PYTHONNOUSERSITE"}
-    storage_ok = all(value.startswith("/data/zxy") for value in path_environment.values())
+    path_environment = {
+        key: value
+        for key, value in environment.items()
+        if key not in {"PYTHONNOUSERSITE", "MUJOCO_GL"}
+    }
+    storage_ok = all(
+        all(Path(part).is_relative_to(config.root) for part in value.split(os.pathsep))
+        for value in path_environment.values()
+    )
     stage_checks = {
         name: {
             "backend": stage.backend,
@@ -57,7 +80,7 @@ def doctor(config: PipelineConfig) -> dict[str, Any]:
         for name, stage in config.stages.items()
     }
     ok = (
-        all(item["exists"] for item in checks.values())
+        all(item["exists"] or not item.get("required", True) for item in checks.values())
         and all(item.get("writable", True) for item in checks.values())
         and all(item["valid"] for item in stage_checks.values())
         and storage_ok
@@ -104,6 +127,9 @@ class PipelineRunner:
             "updated_at": utc_now(),
             "seed": self.config.seed,
             "success_target": self.config.success_target,
+            "configuration": file_record(self.config.source),
+            "workspace_git_revision": _git_revision(self.config.root),
+            "workspace_git_dirty": _git_dirty(self.config.root),
             "iterations": [],
             "upstreams": {
                 key: {"path": str(self.config.paths[key]), "git_revision": _git_revision(self.config.paths[key])}
@@ -111,14 +137,60 @@ class PipelineRunner:
             },
         }
 
+    def dry_run(
+        self,
+        *,
+        from_stage: str | None = None,
+        to_stage: str | None = None,
+    ) -> dict[str, Any]:
+        """Resolve an execution plan without creating a run directory or invoking a stage."""
+        selected = _select_stages(from_stage, to_stage)
+        iterations: list[dict[str, Any]] = []
+        for iteration in range(self.config.max_iterations):
+            iteration_dir = self.run_dir / f"iteration-{iteration:03d}"
+            stage_plans: list[dict[str, Any]] = []
+            for stage_name in selected:
+                stage = self.config.stage(stage_name)
+                stage_dir = iteration_dir / stage_name
+                if stage.backend == "external":
+                    detail = external_stage_plan(
+                        self.config, stage, stage_name, stage_dir, iteration
+                    )
+                else:
+                    detail = {
+                        "stage": stage_name,
+                        "backend": stage.backend,
+                        "options": stage.options,
+                    }
+                stage_plans.append(detail)
+            iterations.append({"index": iteration, "stages": stage_plans})
+        return {
+            "schema": "autopolicy.dry_run/v1",
+            "name": self.config.name,
+            "config": str(self.config.source),
+            "run_dir": str(self.run_dir),
+            "selected_stages": list(selected),
+            "iterations": iterations,
+            "side_effects": False,
+        }
+
     def _state(self, resume: bool, selected: tuple[str, ...]) -> dict[str, Any]:
         if resume:
             if not self.state_path.is_file():
                 raise ConfigError(f"cannot resume: missing {self.state_path}")
             state = read_json(self.state_path)
+            recorded_config = state.get("configuration")
+            if recorded_config and recorded_config.get("sha256") != sha256_file(self.config.source):
+                raise ConfigError(
+                    "cannot resume: pipeline configuration changed since the run was created"
+                )
             if state.get("status") == "completed":
                 selected_are_complete = bool(state.get("iterations")) and all(
-                    all(item.get("stages", {}).get(name, {}).get("status") == "completed" for name in selected)
+                    all(
+                        item.get("stages", {}).get(name, {}).get("status") == "completed"
+                        and self._stage_artifacts_valid(item["stages"][name])
+                        for name in selected
+                    )
                     for item in state["iterations"]
                 )
                 if selected_are_complete:
@@ -133,6 +205,27 @@ class PipelineRunner:
         self.run_dir.mkdir(parents=True, exist_ok=True)
         write_json(self.run_dir / "resolved_config.json", self.config.raw)
         return self._initial_state()
+
+    def _stage_artifacts_valid(self, manifest: dict[str, Any]) -> bool:
+        artifacts = manifest.get("artifacts")
+        if not isinstance(artifacts, list):
+            return False
+        records = [(record, self.run_dir / record.get("path", "")) for record in artifacts]
+        command_inputs = manifest.get("command_inputs", [])
+        if not isinstance(command_inputs, list):
+            return False
+        records.extend((record, Path(record.get("path", ""))) for record in command_inputs)
+        for record, path in records:
+            try:
+                if not path.is_file():
+                    return False
+                if path.stat().st_size != int(record["bytes"]):
+                    return False
+                if sha256_file(path) != record["sha256"]:
+                    return False
+            except (KeyError, OSError, TypeError, ValueError):
+                return False
+        return True
 
     def run(
         self,
@@ -154,7 +247,12 @@ class PipelineRunner:
                     state["iterations"].append(iteration_state)
                 for stage_name in selected:
                     previous = iteration_state["stages"].get(stage_name)
-                    if resume and previous and previous.get("status") == "completed":
+                    if (
+                        resume
+                        and previous
+                        and previous.get("status") == "completed"
+                        and self._stage_artifacts_valid(previous)
+                    ):
                         continue
                     stage_dir = iteration_dir / stage_name
                     stage_dir.mkdir(parents=True, exist_ok=True)
@@ -166,6 +264,25 @@ class PipelineRunner:
                         "status": "running",
                         "started_at": utc_now(),
                     }
+                    if self.config.stage(stage_name).backend == "external":
+                        execution_plan = external_stage_plan(
+                            self.config,
+                            self.config.stage(stage_name),
+                            stage_name,
+                            stage_dir,
+                            iteration,
+                        )
+                        command_inputs = []
+                        for argument in execution_plan["command"]:
+                            candidate = Path(argument)
+                            if (
+                                candidate.is_absolute()
+                                and candidate.is_file()
+                                and (candidate == self.config.root or self.config.root in candidate.parents)
+                            ):
+                                command_inputs.append(file_record(candidate))
+                        stage_manifest["execution_plan"] = execution_plan
+                        stage_manifest["command_inputs"] = command_inputs
                     iteration_state["stages"][stage_name] = stage_manifest
                     write_json(stage_dir / "manifest.json", stage_manifest)
                     write_json(self.state_path, state)
@@ -173,7 +290,7 @@ class PipelineRunner:
                         result = STAGE_FUNCTIONS[stage_name](self.config, stage_dir, iteration)
                         artifact_files = [
                             file_record(path, self.run_dir)
-                            for path in sorted(stage_dir.iterdir())
+                            for path in sorted(stage_dir.rglob("*"))
                             if path.is_file() and path.name != "manifest.json"
                         ]
                         stage_manifest.update(

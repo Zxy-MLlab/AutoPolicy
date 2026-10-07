@@ -63,7 +63,7 @@ modified. Their exact commits are recorded in every run state.
 
 External stages receive `HOME`, `TMPDIR`, `XDG_CACHE_HOME`, `HF_HOME`, `HF_DATASETS_CACHE`,
 `TRANSFORMERS_CACHE`, `TORCH_HOME`, `PIP_CACHE_DIR`, `UV_CACHE_DIR`, `WANDB_DIR`, and `MPLCONFIGDIR`
-redirected below `/data/zxy/autopolicy`. Configuration rejects managed output paths outside `/data/zxy`.
+redirected below the checkout root. Configuration rejects managed output paths outside that root.
 
 External commands are passed directly to `subprocess.run`; shell expansion is not used. Real deployment is
 disabled unless configuration explicitly selects `external`, supplies `operator_approved: true`, and names an

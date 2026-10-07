@@ -1,0 +1,125 @@
+{
+  "name": "task1-real-vla-failure-cycle-smoke",
+  "seed": 9123026,
+  "max_iterations": 1,
+  "success_target": 0.85,
+  "stages": {
+    "reconstruct": {
+      "backend": "external",
+      "command": [
+        "{root}/envs/lerobot/bin/python",
+        "{root}/scripts/task1_vla_pipeline_stage.py",
+        "reconstruct",
+        "--output", "{stage_dir}",
+        "--source-video", "{root}/data/real/task1/VID_20260611_160742_1000810407.mp4",
+        "--normalized-video", "{root}/data/real/task1/videos/camera_00.mp4",
+        "--metadata", "{root}/data/real/task1/metadata.json",
+        "--scene", "{root}/data/real/task1/model/task1_yam_bottle.xml",
+        "--modeling-report", "{root}/runs/task1-real2sim-modeling/report.json"
+      ]
+    },
+    "validate": {
+      "backend": "external",
+      "command": [
+        "{root}/envs/lerobot/bin/python",
+        "{root}/scripts/task1_vla_pipeline_stage.py",
+        "validate",
+        "--output", "{stage_dir}",
+        "--scene", "{root}/data/real/task1/model/task1_yam_bottle.xml",
+        "--modeling-report", "{root}/runs/task1-real2sim-modeling/report.json",
+        "--robot-source-scene", "{root}/vendor/gpt6-real2sim/real2sim_microphones/scene_portable.xml"
+      ]
+    },
+    "generate": {
+      "backend": "external",
+      "command": [
+        "{root}/envs/lerobot/bin/python",
+        "{root}/scripts/task1_vla_pipeline_stage.py",
+        "correction-run",
+        "--output", "{stage_dir}",
+        "--collector", "{root}/scripts/collect_task1_policy_rollin_corrections.py",
+        "--checkpoint", "{root}/checkpoints/task1_smolvla_v5_homereset_stage2_restartlr_pyav_2000steps_b32/checkpoints/002000/pretrained_model",
+        "--dataset", "{root}/data/task1_smolvla_v5_homereset_success99",
+        "--failure-report", "{root}/runs/task1-smolvla-v5-robustness-20seed8080/combined_ood/evaluation_report.json",
+        "--sampling-requests", "{root}/runs/task1-vla-unified-artifact-verification-20260912/iteration-000/improve/sampling_requests.jsonl",
+        "--repo-id", "autopolicy/task1_vla_failure_cycle_corrections",
+        "--rollin-seconds", "3.0",
+        "--max-cases", "2",
+        "--cuda-device", "auto"
+      ]
+    },
+    "dataset": {
+      "backend": "external",
+      "command": [
+        "{root}/envs/lerobot/bin/python",
+        "{root}/scripts/task1_vla_pipeline_stage.py",
+        "merge-run",
+        "--output", "{stage_dir}",
+        "--merger", "{root}/scripts/merge_task1_vla_datasets.py",
+        "--base-dataset", "{root}/data/task1_smolvla_v5_homereset_success99",
+        "--augmentation-dataset", "{run_dir}/generate/lerobot_dataset",
+        "--repo-id", "autopolicy/task1_vla_failure_cycle_merged"
+      ]
+    },
+    "train": {
+      "backend": "external",
+      "command": [
+        "{root}/envs/lerobot/bin/python",
+        "{root}/scripts/task1_vla_pipeline_stage.py",
+        "train-run",
+        "--output", "{stage_dir}",
+        "--dataset", "{run_dir}/dataset/lerobot_dataset",
+        "--train-config", "{root}/configs/task1_smolvla_train_template.json",
+        "--repo-id", "autopolicy/task1_vla_failure_cycle_merged",
+        "--job-name", "task1_vla_failure_cycle_smoke",
+        "--steps", "2",
+        "--batch-size", "1",
+        "--cuda-device", "auto"
+      ]
+    },
+    "evaluate": {
+      "backend": "external",
+      "command": [
+        "{root}/envs/lerobot/bin/python",
+        "{root}/scripts/task1_vla_pipeline_stage.py",
+        "paired-evaluate-run",
+        "--output", "{stage_dir}",
+        "--runner", "{root}/scripts/run_task1_smolvla_robustness.py",
+        "--baseline-checkpoint", "{root}/checkpoints/task1_smolvla_v5_homereset_stage2_restartlr_pyav_2000steps_b32/checkpoints/002000/pretrained_model",
+        "--candidate-checkpoint-root", "{run_dir}/train/checkpoints",
+        "--dataset", "{run_dir}/dataset/lerobot_dataset",
+        "--suite", "{root}/configs/task1_smolvla_smoke_suite.json",
+        "--episodes", "1",
+        "--minimum-qualification-episodes", "20",
+        "--seed", "9123026",
+        "--perturbation-seed", "9123027",
+        "--cuda-device", "auto"
+      ]
+    },
+    "deploy": {
+      "backend": "preparation",
+      "options": {
+        "checkpoint": "{root}/checkpoints/task1_smolvla_v5_homereset_stage2_restartlr_pyav_2000steps_b32/checkpoints/002000/pretrained_model",
+        "scene": "{root}/data/real/task1/model/task1_yam_bottle.xml",
+        "robot_interface": "LeRobot or ROS2 YAM adapter (not yet implemented)",
+        "blockers": [
+          "failure-cycle smoke candidate is below the 20-episode promotion minimum",
+          "exact robot and camera calibration are unavailable",
+          "real-robot safety interlocks are not validated",
+          "no real-robot rollout has been authorized"
+        ]
+      }
+    },
+    "improve": {
+      "backend": "external",
+      "command": [
+        "{root}/envs/lerobot/bin/python",
+        "{root}/scripts/task1_vla_pipeline_stage.py",
+        "improve",
+        "--output", "{stage_dir}",
+        "--evaluation", "{run_dir}/evaluate/result.json",
+        "--iteration", "{iteration}"
+      ]
+    }
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "schema": "autopolicy.task1_smolvla_robustness_suite/v1",
+  "description": "Moderate replica-sim perturbations around the manually fitted task1 hypothesis.",
+  "scenarios": [
+    {
+      "name": "nominal",
+      "arguments": []
+    },
+    {
+      "name": "joint_reset_ood",
+      "arguments": ["--initial-joint-noise-std-rad", "0.03"]
+    },
+    {
+      "name": "camera_calibration_ood",
+      "arguments": [
+        "--camera-position-noise-std-m", "0.015",
+        "--camera-rotation-noise-std-deg", "1.5"
+      ]
+    },
+    {
+      "name": "dynamics_ood",
+      "arguments": [
+        "--bottle-mass-scale-range", "0.6", "1.4",
+        "--bottle-friction-scale-range", "0.6", "1.4"
+      ]
+    },
+    {
+      "name": "visual_ood",
+      "arguments": [
+        "--brightness-scale-range", "0.7", "1.3",
+        "--occlusion-fraction", "0.04"
+      ]
+    },
+    {
+      "name": "combined_ood",
+      "arguments": [
+        "--initial-joint-noise-std-rad", "0.02",
+        "--camera-position-noise-std-m", "0.01",
+        "--camera-rotation-noise-std-deg", "1.0",
+        "--bottle-mass-scale-range", "0.75", "1.25",
+        "--bottle-friction-scale-range", "0.75", "1.25",
+        "--brightness-scale-range", "0.8", "1.2",
+        "--occlusion-fraction", "0.02"
+      ]
+    }
+  ]
+}

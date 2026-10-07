@@ -1,13 +1,12 @@
 {
   "name": "autopolicy-external",
-  "root": "/data/zxy/autopolicy",
   "seed": 17,
   "max_iterations": 3,
   "success_target": 0.85,
   "stages": {
     "reconstruct": {
       "backend": "external",
-      "command": ["python", "/path/to/reconstruct_adapter.py", "--input", "/data/zxy/autopolicy/data/real", "--output", "{stage_dir}"],
+      "command": ["python", "/path/to/reconstruct_adapter.py", "--input", "{root}/data/real", "--output", "{stage_dir}"],
       "options": {"cwd": "{gpt6_real2sim}", "result": "result.json"}
     },
     "validate": {
@@ -24,7 +23,7 @@
     },
     "train": {
       "backend": "external",
-      "command": ["python", "{root}/scripts/train_lerobot_policies.py", "--lerobot-root", "{lerobot}", "--dataset-root", "/data/zxy/autopolicy/data/robotwin_clean_50/REPLACE_WITH_ONE_TASK", "--output-dir", "{stage_dir}"],
+      "command": ["python", "{root}/scripts/train_lerobot_policies.py", "--lerobot-root", "{lerobot}", "--dataset-root", "{root}/data/robotwin_clean_50/REPLACE_WITH_ONE_TASK", "--output-dir", "{stage_dir}"],
       "options": {"cwd": "{root}", "result": "result.json"}
     },
     "evaluate": {

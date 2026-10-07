@@ -7,7 +7,7 @@ from typing import Any
 from .config import PipelineConfig, StageConfig, storage_environment
 from .dataset import audit_lerobot_dataset
 from .errors import SafetyError, StageError
-from .execution import run_command
+from .execution import expand_command, run_command
 from .io import read_json, read_jsonl, write_json, write_jsonl
 
 
@@ -15,7 +15,7 @@ def _float(options: dict[str, Any], name: str, default: float) -> float:
     return float(options.get(name, default))
 
 
-def _external(
+def external_stage_plan(
     config: PipelineConfig,
     stage_config: StageConfig,
     stage_name: str,
@@ -25,6 +25,9 @@ def _external(
     variables = {
         "root": config.root,
         "run_dir": stage_dir.parent,
+        "pipeline_run_dir": stage_dir.parent.parent,
+        "previous_iteration_dir": stage_dir.parent.parent
+        / f"iteration-{iteration - 1:03d}",
         "stage_dir": stage_dir,
         "output_dir": stage_dir,
         "iteration": iteration,
@@ -37,15 +40,47 @@ def _external(
     }
     cwd_value = stage_config.options.get("cwd", str(config.root))
     cwd = Path(str(cwd_value).format_map({key: str(value) for key, value in variables.items()})).resolve()
+    result_name = str(stage_config.options.get("result", "result.json"))
+    return {
+        "stage": stage_name,
+        "backend": "external",
+        "command": expand_command(stage_config.command, variables),
+        "cwd": str(cwd),
+        "result_file": str(stage_dir / result_name),
+    }
+
+
+def _external(
+    config: PipelineConfig,
+    stage_config: StageConfig,
+    stage_name: str,
+    stage_dir: Path,
+    iteration: int,
+) -> dict[str, Any]:
+    plan = external_stage_plan(config, stage_config, stage_name, stage_dir, iteration)
     argv = run_command(
         stage_config.command,
-        cwd=cwd,
+        cwd=Path(plan["cwd"]),
         environment=storage_environment(config),
         log_path=stage_dir / "command.log",
-        variables=variables,
+        variables={
+            "root": config.root,
+            "run_dir": stage_dir.parent,
+            "pipeline_run_dir": stage_dir.parent.parent,
+            "previous_iteration_dir": stage_dir.parent.parent
+            / f"iteration-{iteration - 1:03d}",
+            "stage_dir": stage_dir,
+            "output_dir": stage_dir,
+            "iteration": iteration,
+            "gpt6_real2sim": config.paths["gpt6_real2sim"],
+            "robotwin": config.paths["robotwin"],
+            "lerobot": config.paths["lerobot"],
+            "datasets": config.paths["datasets"],
+            "checkpoints": config.paths["checkpoints"],
+            "models": config.paths["models"],
+        },
     )
-    result_name = str(stage_config.options.get("result", "result.json"))
-    result_path = stage_dir / result_name
+    result_path = Path(plan["result_file"])
     if not result_path.is_file():
         raise StageError(f"external stage {stage_name!r} did not write required result {result_path}")
     payload = read_json(result_path)
@@ -364,6 +399,49 @@ def deploy(config: PipelineConfig, stage_dir: Path, iteration: int) -> dict[str,
         if not stage.options.get("emergency_stop"):
             raise SafetyError("external deployment requires a documented emergency_stop setting")
         return _external(config, stage, "deploy", stage_dir, iteration)
+    if stage.backend == "preparation":
+        checkpoint = Path(str(stage.options.get("checkpoint", ""))).resolve()
+        scene = Path(str(stage.options.get("scene", ""))).resolve()
+        required_checkpoint_files = [
+            checkpoint / "config.json",
+            checkpoint / "model.safetensors",
+            checkpoint / "policy_preprocessor.json",
+            checkpoint / "policy_postprocessor.json",
+        ]
+        missing = [str(path) for path in [*required_checkpoint_files, scene] if not path.is_file()]
+        if missing:
+            raise StageError(f"deployment preparation inputs are missing: {missing}")
+        blockers = list(
+            stage.options.get(
+                "blockers",
+                [
+                    "exact robot model and joint mapping are not confirmed",
+                    "camera intrinsics and extrinsics are not calibrated",
+                    "real-robot safety limits and emergency stop are not validated",
+                    "the policy has only been evaluated in MuJoCo replica-sim",
+                ],
+            )
+        )
+        report = {
+            "schema": "autopolicy.deployment_readiness/v1",
+            "authenticity": "real_robot_deployment_preparation_only",
+            "checkpoint": str(checkpoint),
+            "scene": str(scene),
+            "robot_interface": stage.options.get("robot_interface", "LeRobot/ROS2 adapter pending"),
+            "policy_io": stage.options.get(
+                "policy_io",
+                {
+                    "inputs": ["observation.images.camera_00", "observation.state", "task"],
+                    "state_shape": [16],
+                    "action_shape": [14],
+                },
+            ),
+            "hardware_commands_sent": 0,
+            "ready_for_hardware": not blockers,
+            "blockers": blockers,
+        }
+        write_json(stage_dir / "deployment_readiness.json", report)
+        return report
     if stage.backend == "mock":
         report = {
             "authenticity": "synthetic_smoke_test",

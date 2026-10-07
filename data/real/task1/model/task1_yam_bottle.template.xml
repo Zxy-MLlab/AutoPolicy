@@ -1,5 +1,5 @@
 <mujoco model="task1_yam_bottle">
-  <compiler angle="radian" meshdir="/data/zxy/autopolicy/vendor/gpt6-real2sim/real2sim_microphones/" />
+  <compiler angle="radian" meshdir="__AUTOPOLICY_ROOT__/vendor/gpt6-real2sim/real2sim_microphones/" />
   <option integrator="implicitfast" timestep="0.001" iterations="100" cone="elliptic" gravity="0 0 -9.81" />
   <size nconmax="512" njmax="4096" />
   <visual>
@@ -15,7 +15,7 @@
     <material name="task1_bottle_cap" rgba="0.10 0.38 0.46 1" />
   </asset>
 
-  <include file="/data/zxy/autopolicy/vendor/gpt6-real2sim/real2sim_microphones/robot_portable.xml" />
+  <include file="__AUTOPOLICY_ROOT__/vendor/gpt6-real2sim/real2sim_microphones/robot_portable.xml" />
 
   <worldbody>
     <light name="task1_key_light" pos="0.3 -0.8 2.2" dir="0.1 0.2 -1" directional="true" diffuse="0.65 0.65 0.65" specular="0.15 0.15 0.15" />

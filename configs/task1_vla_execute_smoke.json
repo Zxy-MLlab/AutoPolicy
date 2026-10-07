@@ -1,0 +1,116 @@
+{
+  "name": "task1-real-vla-execute-smoke",
+  "seed": 9122026,
+  "max_iterations": 1,
+  "success_target": 0.85,
+  "stages": {
+    "reconstruct": {
+      "backend": "external",
+      "command": [
+        "{root}/envs/lerobot/bin/python",
+        "{root}/scripts/task1_vla_pipeline_stage.py",
+        "reconstruct",
+        "--output", "{stage_dir}",
+        "--source-video", "{root}/data/real/task1/VID_20260611_160742_1000810407.mp4",
+        "--normalized-video", "{root}/data/real/task1/videos/camera_00.mp4",
+        "--metadata", "{root}/data/real/task1/metadata.json",
+        "--scene", "{root}/data/real/task1/model/task1_yam_bottle.xml",
+        "--modeling-report", "{root}/runs/task1-real2sim-modeling/report.json"
+      ]
+    },
+    "validate": {
+      "backend": "external",
+      "command": [
+        "{root}/envs/lerobot/bin/python",
+        "{root}/scripts/task1_vla_pipeline_stage.py",
+        "validate",
+        "--output", "{stage_dir}",
+        "--scene", "{root}/data/real/task1/model/task1_yam_bottle.xml",
+        "--modeling-report", "{root}/runs/task1-real2sim-modeling/report.json",
+        "--robot-source-scene", "{root}/vendor/gpt6-real2sim/real2sim_microphones/scene_portable.xml"
+      ]
+    },
+    "generate": {
+      "backend": "external",
+      "command": [
+        "{root}/envs/lerobot/bin/python",
+        "{root}/scripts/task1_vla_pipeline_stage.py",
+        "collect-run",
+        "--output", "{stage_dir}",
+        "--collector", "{root}/scripts/collect_task1_visual_vla.py",
+        "--episodes", "2",
+        "--seed", "9122026",
+        "--repo-id", "autopolicy/task1_vla_execute_smoke"
+      ]
+    },
+    "dataset": {
+      "backend": "external",
+      "command": [
+        "{root}/envs/lerobot/bin/python",
+        "{root}/scripts/task1_vla_pipeline_stage.py",
+        "dataset",
+        "--output", "{stage_dir}",
+        "--dataset", "{run_dir}/generate/lerobot_dataset",
+        "--created-in-this-run"
+      ]
+    },
+    "train": {
+      "backend": "external",
+      "command": [
+        "{root}/envs/lerobot/bin/python",
+        "{root}/scripts/task1_vla_pipeline_stage.py",
+        "train-run",
+        "--output", "{stage_dir}",
+        "--dataset", "{run_dir}/generate/lerobot_dataset",
+        "--train-config", "{root}/configs/task1_smolvla_train_template.json",
+        "--repo-id", "autopolicy/task1_vla_execute_smoke",
+        "--job-name", "task1_vla_execute_smoke",
+        "--steps", "2",
+        "--batch-size", "1",
+        "--cuda-device", "auto"
+      ]
+    },
+    "evaluate": {
+      "backend": "external",
+      "command": [
+        "{root}/envs/lerobot/bin/python",
+        "{root}/scripts/task1_vla_pipeline_stage.py",
+        "evaluate-run",
+        "--output", "{stage_dir}",
+        "--runner", "{root}/scripts/run_task1_smolvla_robustness.py",
+        "--checkpoint-root", "{run_dir}/train/checkpoints",
+        "--dataset", "{run_dir}/generate/lerobot_dataset",
+        "--suite", "{root}/configs/task1_smolvla_smoke_suite.json",
+        "--episodes", "1",
+        "--seed", "9122026",
+        "--perturbation-seed", "9122027",
+        "--cuda-device", "auto"
+      ]
+    },
+    "deploy": {
+      "backend": "preparation",
+      "options": {
+        "checkpoint": "{root}/checkpoints/task1_smolvla_v5_homereset_stage2_restartlr_pyav_2000steps_b32/checkpoints/002000/pretrained_model",
+        "scene": "{root}/data/real/task1/model/task1_yam_bottle.xml",
+        "robot_interface": "LeRobot or ROS2 YAM adapter (not yet implemented)",
+        "blockers": [
+          "execute-smoke checkpoint is not performance-qualified",
+          "exact robot and camera calibration are unavailable",
+          "real-robot safety interlocks are not validated",
+          "no real-robot rollout has been authorized"
+        ]
+      }
+    },
+    "improve": {
+      "backend": "external",
+      "command": [
+        "{root}/envs/lerobot/bin/python",
+        "{root}/scripts/task1_vla_pipeline_stage.py",
+        "improve",
+        "--output", "{stage_dir}",
+        "--evaluation", "{run_dir}/evaluate/result.json",
+        "--iteration", "{iteration}"
+      ]
+    }
+  }
+}

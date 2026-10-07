@@ -1,0 +1,106 @@
+{
+  "name": "task1-real-vla-verified-artifacts",
+  "seed": 8080,
+  "max_iterations": 1,
+  "success_target": 0.85,
+  "stages": {
+    "reconstruct": {
+      "backend": "external",
+      "command": [
+        "{root}/envs/lerobot/bin/python",
+        "{root}/scripts/task1_vla_pipeline_stage.py",
+        "reconstruct",
+        "--output", "{stage_dir}",
+        "--source-video", "{root}/data/real/task1/VID_20260611_160742_1000810407.mp4",
+        "--normalized-video", "{root}/data/real/task1/videos/camera_00.mp4",
+        "--metadata", "{root}/data/real/task1/metadata.json",
+        "--scene", "{root}/data/real/task1/model/task1_yam_bottle.xml",
+        "--modeling-report", "{root}/runs/task1-real2sim-modeling/report.json"
+      ]
+    },
+    "validate": {
+      "backend": "external",
+      "command": [
+        "{root}/envs/lerobot/bin/python",
+        "{root}/scripts/task1_vla_pipeline_stage.py",
+        "validate",
+        "--output", "{stage_dir}",
+        "--scene", "{root}/data/real/task1/model/task1_yam_bottle.xml",
+        "--modeling-report", "{root}/runs/task1-real2sim-modeling/report.json",
+        "--robot-source-scene", "{root}/vendor/gpt6-real2sim/real2sim_microphones/scene_portable.xml"
+      ]
+    },
+    "generate": {
+      "backend": "external",
+      "command": [
+        "{root}/envs/lerobot/bin/python",
+        "{root}/scripts/task1_vla_pipeline_stage.py",
+        "generate",
+        "--output", "{stage_dir}",
+        "--collection-report", "{root}/data/task1_smolvla_v5_homereset_100episodes/collection_report.json",
+        "--filter-manifest", "{root}/data/task1_smolvla_v5_homereset_success99/filter_manifest.json",
+        "--dataset", "{root}/data/task1_smolvla_v5_homereset_success99"
+      ]
+    },
+    "dataset": {
+      "backend": "external",
+      "command": [
+        "{root}/envs/lerobot/bin/python",
+        "{root}/scripts/task1_vla_pipeline_stage.py",
+        "dataset",
+        "--output", "{stage_dir}",
+        "--dataset", "{root}/data/task1_smolvla_v5_homereset_success99"
+      ]
+    },
+    "train": {
+      "backend": "external",
+      "command": [
+        "{root}/envs/lerobot/bin/python",
+        "{root}/scripts/task1_vla_pipeline_stage.py",
+        "train",
+        "--output", "{stage_dir}",
+        "--checkpoint", "{root}/checkpoints/task1_smolvla_v5_homereset_stage2_restartlr_pyav_2000steps_b32/checkpoints/002000/pretrained_model",
+        "--dataset", "{root}/data/task1_smolvla_v5_homereset_success99"
+      ]
+    },
+    "evaluate": {
+      "backend": "external",
+      "command": [
+        "{root}/envs/lerobot/bin/python",
+        "{root}/scripts/task1_vla_pipeline_stage.py",
+        "evaluate",
+        "--output", "{stage_dir}",
+        "--robustness-report", "{root}/runs/task1-smolvla-v5-robustness-20seed8080/robustness_report.json",
+        "--checkpoint", "{root}/checkpoints/task1_smolvla_v5_homereset_stage2_restartlr_pyav_2000steps_b32/checkpoints/002000/pretrained_model",
+        "--dataset", "{root}/data/task1_smolvla_v5_homereset_success99",
+        "--nominal-min", "0.85",
+        "--combined-min", "0.50"
+      ]
+    },
+    "deploy": {
+      "backend": "preparation",
+      "options": {
+        "checkpoint": "{root}/checkpoints/task1_smolvla_v5_homereset_stage2_restartlr_pyav_2000steps_b32/checkpoints/002000/pretrained_model",
+        "scene": "{root}/data/real/task1/model/task1_yam_bottle.xml",
+        "robot_interface": "LeRobot or ROS2 YAM adapter (not yet implemented)",
+        "blockers": [
+          "exact robot model and 14-action/16-state joint mapping are not confirmed",
+          "camera intrinsics and extrinsics are hypotheses rather than measured calibration",
+          "workspace limits, velocity limits, force limits, and emergency stop are not validated",
+          "the checkpoint has only been evaluated in MuJoCo replica-sim"
+        ]
+      }
+    },
+    "improve": {
+      "backend": "external",
+      "command": [
+        "{root}/envs/lerobot/bin/python",
+        "{root}/scripts/task1_vla_pipeline_stage.py",
+        "improve",
+        "--output", "{stage_dir}",
+        "--evaluation", "{run_dir}/evaluate/result.json",
+        "--iteration", "{iteration}"
+      ]
+    }
+  }
+}

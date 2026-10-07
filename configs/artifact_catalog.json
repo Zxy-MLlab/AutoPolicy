@@ -1,18 +1,17 @@
 {
   "name": "gpt6-robotwin-artifact-audit",
-  "root": "/data/zxy/autopolicy",
   "seed": 17,
   "max_iterations": 1,
   "success_target": 0.8,
   "stages": {
     "reconstruct": {
       "backend": "artifact",
-      "options": {"source": "/data/zxy/autopolicy/vendor/gpt6-real2sim/real2sim_ep0"}
+      "options": {"source": "{root}/vendor/gpt6-real2sim/real2sim_ep0"}
     },
     "validate": {
       "backend": "artifact",
       "options": {
-        "validation": "/data/zxy/autopolicy/vendor/gpt6-real2sim/real2sim_ep0/validation.json",
+        "validation": "{root}/vendor/gpt6-real2sim/real2sim_ep0/validation.json",
         "max_camera_reprojection_px": 15.0,
         "max_penetration_m": 0.005,
         "max_trajectory_rmse_rad": 0.02,
@@ -23,7 +22,7 @@
     "dataset": {
       "backend": "catalog",
       "options": {
-        "source": "/data/zxy/autopolicy/data/robotwin_clean_50",
+        "source": "{root}/data/robotwin_clean_50",
         "verify_files": true
       }
     },

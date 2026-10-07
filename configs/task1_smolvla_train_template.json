@@ -1,0 +1,251 @@
+{
+    "dataset": {
+        "repo_id": "autopolicy/task1_smolvla_v13_homereset99_plus_broad59_basenorm",
+        "repo_type": "dataset",
+        "root": "{root}/data/task1_smolvla_v13_homereset99_plus_broad59_basenorm",
+        "episodes": null,
+        "exclude_episodes": null,
+        "image_transforms": {
+            "enable": true,
+            "max_num_transforms": 1,
+            "random_order": false,
+            "tfs": {
+                "identity": {
+                    "weight": 3.0,
+                    "type": "Identity",
+                    "kwargs": {}
+                },
+                "brightness": {
+                    "weight": 1.0,
+                    "type": "ColorJitter",
+                    "kwargs": {
+                        "brightness": [
+                            0.8,
+                            1.2
+                        ]
+                    }
+                }
+            }
+        },
+        "revision": null,
+        "use_imagenet_stats": true,
+        "video_backend": "pyav",
+        "return_uint8": false,
+        "depth_output_unit": "mm",
+        "streaming": false,
+        "eval_split": 0.0
+    },
+    "env": null,
+    "policy": {
+        "type": "smolvla",
+        "n_obs_steps": 1,
+        "input_features": {
+            "observation.images.camera_00": {
+                "type": "VISUAL",
+                "shape": [
+                    3,
+                    240,
+                    320
+                ]
+            },
+            "observation.state": {
+                "type": "STATE",
+                "shape": [
+                    16
+                ]
+            }
+        },
+        "output_features": {
+            "action": {
+                "type": "ACTION",
+                "shape": [
+                    14
+                ]
+            }
+        },
+        "device": "cuda",
+        "use_amp": false,
+        "use_peft": true,
+        "push_to_hub": false,
+        "repo_id": null,
+        "private": null,
+        "tags": null,
+        "license": null,
+        "pretrained_path": "{root}/tmp/task1_smolvla_v15_v5_train_view",
+        "pretrained_revision": null,
+        "chunk_size": 20,
+        "n_action_steps": 10,
+        "normalization_mapping": {
+            "VISUAL": "IDENTITY",
+            "STATE": "MEAN_STD",
+            "ACTION": "MEAN_STD"
+        },
+        "max_state_dim": 32,
+        "max_action_dim": 32,
+        "resize_imgs_with_padding": [
+            512,
+            512
+        ],
+        "empty_cameras": 0,
+        "adapt_to_pi_aloha": false,
+        "use_delta_joint_actions_aloha": false,
+        "tokenizer_max_length": 48,
+        "num_steps": 10,
+        "use_cache": true,
+        "freeze_vision_encoder": false,
+        "train_expert_only": true,
+        "train_state_proj": true,
+        "optimizer_lr": 5e-05,
+        "optimizer_betas": [
+            0.9,
+            0.95
+        ],
+        "optimizer_eps": 1e-08,
+        "optimizer_weight_decay": 1e-10,
+        "optimizer_grad_clip_norm": 10.0,
+        "scheduler_warmup_steps": 200,
+        "scheduler_decay_steps": 2000,
+        "scheduler_decay_lr": 2.5e-06,
+        "vlm_model_name": "{root}/models/smolvlm2_500m_video_instruct_assets",
+        "load_vlm_weights": false,
+        "add_image_special_tokens": false,
+        "attention_mode": "cross_attn",
+        "prefix_length": 0,
+        "pad_language_to": "max_length",
+        "num_expert_layers": 0,
+        "num_vlm_layers": 16,
+        "self_attn_every_n_layers": 2,
+        "expert_width_multiplier": 0.75,
+        "min_period": 0.004,
+        "max_period": 4.0,
+        "rtc_config": null,
+        "compile_model": false,
+        "compile_mode": "max-autotune"
+    },
+    "reward_model": null,
+    "output_dir": "{root}/checkpoints/task1_smolvla_v19_broad59_visionlora_brightnessaug25p_50steps_lr5e5_b32",
+    "job_name": "task1_smolvla_v19_broad59_visionlora_brightnessaug25p_50steps_lr5e5_b32",
+    "resume": false,
+    "seed": 1000,
+    "cudnn_deterministic": false,
+    "num_workers": 2,
+    "batch_size": 32,
+    "prefetch_factor": 4,
+    "persistent_workers": true,
+    "dataloader_multiprocessing_context": "spawn",
+    "steps": 50,
+    "env_eval_freq": 20000,
+    "log_freq": 25,
+    "eval_steps": 0,
+    "max_eval_samples": 0,
+    "tolerance_s": 0.0001,
+    "save_checkpoint": true,
+    "save_freq": 25,
+    "checkpoint_format": "safetensors",
+    "use_policy_training_preset": true,
+    "optimizer": {
+        "type": "adamw",
+        "lr": 5e-05,
+        "weight_decay": 1e-10,
+        "grad_clip_norm": 10.0,
+        "betas": [
+            0.9,
+            0.95
+        ],
+        "eps": 1e-08
+    },
+    "scheduler": {
+        "type": "cosine_decay_with_warmup",
+        "num_warmup_steps": 200,
+        "num_decay_steps": 2000,
+        "peak_lr": 5e-05,
+        "decay_lr": 2.5e-06
+    },
+    "parallelism": {
+        "dp_replicate": 1,
+        "dp_shard": 1,
+        "context_parallel": {
+            "ring_degree": 1,
+            "ulysses_degree": 1
+        },
+        "cfg_parallel": 1
+    },
+    "accelerator": {
+        "mixed_precision": "no",
+        "gradient_accumulation": {
+            "steps": 1
+        },
+        "fsdp": {
+            "reshard_after_forward": true,
+            "wrap_modules": null,
+            "min_num_params": null,
+            "cpu_offload": false,
+            "ignored_modules": null
+        },
+        "ddp": {
+            "find_unused_parameters": true,
+            "gradient_as_bucket_view": false,
+            "static_graph": false
+        },
+        "compile": {
+            "enabled": false,
+            "backend": "inductor",
+            "mode": null,
+            "regional": true
+        },
+        "activation_checkpointing": {
+            "mode": "none"
+        }
+    },
+    "eval": {
+        "n_episodes": 50,
+        "batch_size": 50,
+        "use_async_envs": true,
+        "recording": false,
+        "recording_repo_id": null,
+        "recording_private": false
+    },
+    "ema": {
+        "enable": false,
+        "decay": null,
+        "update_after_step": 0,
+        "inv_gamma": 1.0,
+        "power": 0.75,
+        "min_decay": 0.0,
+        "max_decay": 0.9999,
+        "use_for_eval": true
+    },
+    "wandb": {
+        "enable": false,
+        "disable_artifact": false,
+        "project": "lerobot",
+        "entity": null,
+        "notes": null,
+        "run_id": null,
+        "resume": null,
+        "mode": null,
+        "console": "wrap",
+        "console_multipart": false,
+        "console_chunk_max_seconds": 0,
+        "add_tags": true
+    },
+    "peft": {
+        "target_modules": "(model\\.vlm_with_expert\\.vlm\\.model\\.vision_model\\.encoder\\.layers\\..*\\.self_attn\\.(q|v)_proj|model\\.vlm_with_expert\\.lm_expert\\..*\\.(q|v)_proj|model\\.(state_proj|action_in_proj|action_out_proj|action_time_mlp_in|action_time_mlp_out))",
+        "full_training_modules": null,
+        "method_type": "LORA",
+        "init_type": null,
+        "r": 8,
+        "lora_alpha": null
+    },
+    "job": {
+        "target": null,
+        "image": "huggingface/lerobot-gpu:latest",
+        "timeout": "2d",
+        "detach": false,
+        "tags": []
+    },
+    "save_checkpoint_to_hub": false,
+    "sample_weighting": null,
+    "rename_map": {},
+    "checkpoint_path": null
+}

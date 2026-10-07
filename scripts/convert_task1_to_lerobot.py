@@ -12,7 +12,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 
-ROOT = Path("/data/zxy/autopolicy")
+ROOT = Path(__file__).resolve().parents[1]
 RUN = ROOT / "runs/task1-policy-pipeline"
 RAW = RUN / "raw_rollouts.npz"
 DATASET = ROOT / "data/task1_oracle_state_lerobot"

@@ -12,7 +12,7 @@ import mujoco
 import numpy as np
 
 
-ROOT = Path("/data/zxy/autopolicy").resolve()
+ROOT = Path(__file__).resolve().parents[1].resolve()
 EP0 = ROOT / "vendor/gpt6-real2sim/real2sim_ep0"
 
 

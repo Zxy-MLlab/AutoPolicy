@@ -25,7 +25,7 @@ def arguments() -> argparse.Namespace:
 
 def main() -> int:
     args = arguments()
-    root = Path("/data/zxy/autopolicy").resolve()
+    root = Path(__file__).resolve().parents[1].resolve()
     for label, path in (("lerobot root", args.lerobot_root), ("dataset root", args.dataset_root), ("output dir", args.output_dir)):
         resolved = path.resolve()
         if resolved != root and root not in resolved.parents:

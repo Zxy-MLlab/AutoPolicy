@@ -1,6 +1,5 @@
 {
   "name": "autopolicy-smoke",
-  "root": "/data/zxy/autopolicy",
   "seed": 17,
   "max_iterations": 2,
   "success_target": 0.9,
