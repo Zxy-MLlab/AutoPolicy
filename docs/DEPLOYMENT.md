@@ -21,10 +21,10 @@ cd AutoPolicy
 scripts/bootstrap.sh
 ```
 
-`bootstrap.sh` creates `envs/orchestrator`, clones the exact upstream commits in `UPSTREAMS.json` into
+`bootstrap.sh` creates `envs/orchestrator`, downloads the exact upstream commits in `UPSTREAMS.json` into
 `vendor/`, installs LeRobot with its locked training, SmolVLA, and FastWAM extras into `envs/lerobot`,
 downloads the public SmolVLM2 processor files, and renders the task1 MJCF for this checkout path. It is
-idempotent and refuses to alter an existing upstream checkout at a different commit. On a server without
+idempotent and refuses to alter an existing upstream snapshot at a different commit. On a server without
 the training dependencies, `scripts/bootstrap.sh --core-only` installs and tests the lightweight runner.
 
 The public SmolVLM2 processor is pinned to revision `7b375e1b73b11138ff12fe22c8f2822d8fe03467` from

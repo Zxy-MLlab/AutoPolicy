@@ -22,7 +22,8 @@ def _run_id() -> str:
 
 def _git_revision(path: Path) -> str | None:
     if not (path / ".git").exists():
-        return None
+        marker = path / ".upstream-commit"
+        return marker.read_text(encoding="utf-8").strip() if marker.is_file() else None
     completed = subprocess.run(
         ["git", "-C", str(path), "rev-parse", "HEAD"],
         capture_output=True,

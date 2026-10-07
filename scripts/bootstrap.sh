@@ -43,20 +43,47 @@ command -v nvidia-smi >/dev/null || { echo "nvidia-smi is required for the GPU s
 import json
 import os
 import subprocess
+import shutil
+import tarfile
 from pathlib import Path
+from urllib.parse import urlparse
 
 root = Path(os.environ['AUTOPOLICY_ROOT'])
 upstreams = json.loads((root / 'UPSTREAMS.json').read_text(encoding='utf-8'))
 for name, spec in upstreams.items():
     destination = root / spec['path']
     commit = spec['commit']
-    if not (destination / '.git').is_dir():
+    if (destination / '.git').is_dir():
+        actual = subprocess.check_output(['git', '-C', str(destination), 'rev-parse', 'HEAD'], text=True).strip()
+    elif (destination / '.upstream-commit').is_file():
+        actual = (destination / '.upstream-commit').read_text(encoding='utf-8').strip()
+    else:
         if destination.exists():
-            raise SystemExit(f'{destination} exists but is not a Git checkout')
-        subprocess.run(['git', 'clone', '--filter=blob:none', '--no-checkout', spec['url'], str(destination)], check=True)
-        subprocess.run(['git', '-C', str(destination), 'fetch', 'origin', commit], check=True)
-        subprocess.run(['git', '-C', str(destination), 'checkout', '--detach', commit], check=True)
-    actual = subprocess.check_output(['git', '-C', str(destination), 'rev-parse', 'HEAD'], text=True).strip()
+            raise SystemExit(f'{destination} exists without a recorded upstream commit')
+        parsed = urlparse(spec['url'])
+        if parsed.hostname != 'github.com':
+            raise SystemExit(f'unsupported upstream source: {spec["url"]}')
+        repository = parsed.path.strip('/').removesuffix('.git')
+        url = f'https://codeload.github.com/{repository}/tar.gz/{commit}'
+        archive = root / 'cache/upstreams' / f'{name}-{commit}.tar.gz'
+        archive.parent.mkdir(parents=True, exist_ok=True)
+        if not archive.is_file():
+            partial = archive.with_name(archive.name + '.part')
+            subprocess.run(['curl', '--fail', '--location', '--retry', '5', '--retry-all-errors', '--continue-at', '-', '--output', str(partial), url], check=True)
+            partial.replace(archive)
+        staging = root / 'vendor' / f'.{name}-unpack'
+        if staging.exists():
+            shutil.rmtree(staging)
+        staging.mkdir(parents=True)
+        with tarfile.open(archive, 'r:gz') as package:
+            package.extractall(staging, filter='data')
+        entries = list(staging.iterdir())
+        if len(entries) != 1 or not entries[0].is_dir():
+            raise SystemExit(f'unexpected upstream archive layout: {archive}')
+        entries[0].rename(destination)
+        staging.rmdir()
+        (destination / '.upstream-commit').write_text(commit + '\n', encoding='utf-8')
+        actual = commit
     if actual != commit:
         raise SystemExit(f'{name} is at {actual}, expected {commit}; refusing to change an existing checkout')
     print(f'{name}: {actual}')
