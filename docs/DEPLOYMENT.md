@@ -49,6 +49,8 @@ and adjusts archived JSON paths to the new checkout. The release contains:
 
 Other experimental datasets, checkpoints, caches, environments, and public upstream assets are excluded.
 The release is public, as is this repository.
+The optional 50-task RoboTwin catalog audit additionally needs `data/robotwin_clean_50`; that separate
+38 GB workspace dataset is not part of the task1 release.
 
 ## 4. Verify and run task1
 

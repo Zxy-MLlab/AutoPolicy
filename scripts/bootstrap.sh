@@ -72,7 +72,9 @@ for name, spec in upstreams.items():
         archive.parent.mkdir(parents=True, exist_ok=True)
         if not archive.is_file():
             partial = archive.with_name(archive.name + '.part')
-            subprocess.run(['curl', '--fail', '--location', '--retry', '5', '--continue-at', '-', '--output', str(partial), url], check=True)
+            subprocess.run(['curl', '--silent', '--show-error', '--fail', '--location', '--retry', '5', '--continue-at', '-', '--output', str(partial), url], check=True)
+            with tarfile.open(partial, 'r:gz') as downloaded:
+                downloaded.getmembers()
             partial.replace(archive)
         staging = root / 'vendor' / f'.{name}-unpack'
         if staging.exists():

@@ -7,7 +7,14 @@ import pytest
 from autopolicy.config import load_config
 from autopolicy.errors import ConfigError
 from autopolicy.io import read_json
-from autopolicy.pipeline import PipelineRunner, summarize_run
+from autopolicy.pipeline import PipelineRunner, _git_revision, summarize_run
+
+
+def test_upstream_archive_records_pinned_revision(tmp_path: Path) -> None:
+    source = tmp_path / "upstream"
+    source.mkdir()
+    (source / ".upstream-commit").write_text("a" * 40 + "\n", encoding="utf-8")
+    assert _git_revision(source) == "a" * 40
 
 
 def test_smoke_pipeline_is_auditable(tmp_path: Path) -> None:
