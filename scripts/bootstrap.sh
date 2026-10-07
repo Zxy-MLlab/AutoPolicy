@@ -74,6 +74,7 @@ from huggingface_hub import snapshot_download
 root = Path(os.environ['AUTOPOLICY_ROOT'])
 snapshot_download(
     repo_id='HuggingFaceTB/SmolVLM2-500M-Video-Instruct',
+    revision='7b375e1b73b11138ff12fe22c8f2822d8fe03467',
     local_dir=root / 'models/smolvlm2_500m_video_instruct_assets',
     allow_patterns=['*.json', '*.txt'],
 )

@@ -27,7 +27,7 @@ downloads the public SmolVLM2 processor files, and renders the task1 MJCF for th
 idempotent and refuses to alter an existing upstream checkout at a different commit. On a server without
 the training dependencies, `scripts/bootstrap.sh --core-only` installs and tests the lightweight runner.
 
-The public SmolVLM2 processor comes from
+The public SmolVLM2 processor is pinned to revision `7b375e1b73b11138ff12fe22c8f2822d8fe03467` from
 [`HuggingFaceTB/SmolVLM2-500M-Video-Instruct`](https://huggingface.co/HuggingFaceTB/SmolVLM2-500M-Video-Instruct).
 The trained task1 checkpoint is a separate project-owned artifact.
 
